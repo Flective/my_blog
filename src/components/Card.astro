@@ -1,0 +1,36 @@
+---
+interface Props {
+  href: string;
+  title: string;
+  date: Date;
+  excerpt?: string;
+  tags?: string[];
+  type?: 'post' | 'essay' | 'project';
+  subtitle?: string;
+  status?: 'active' | 'completed' | 'concept';
+}
+
+const { href, title, date, excerpt, tags, type = 'post', subtitle, status } = Astro.props;
+
+const formattedDate = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric', month: 'long', day: 'numeric'
+}).format(date);
+
+const typeLabel = { post: 'Post', essay: 'Essay', project: 'Project' }[type];
+---
+<a href={href} class="card">
+  <div class="card__meta">
+    <span>{typeLabel}</span>
+    <span>·</span>
+    <time datetime={date.toISOString()}>{formattedDate}</time>
+    {status && <span class={`status status--${status}`}>{status}</span>}
+  </div>
+  <h2 class="card__title">{title}</h2>
+  {subtitle && <p class="card__subtitle">{subtitle}</p>}
+  {excerpt && <p class="card__excerpt">{excerpt}</p>}
+  {tags && tags.length > 0 && (
+    <div class="card__tags">
+      {tags.map(tag => <span class="tag">{tag}</span>)}
+    </div>
+  )}
+</a>

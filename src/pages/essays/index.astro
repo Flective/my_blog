@@ -1,0 +1,39 @@
+---
+export const prerender = true;
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Card from '../../components/Card.astro';
+
+const essays = (await getCollection('essays')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+---
+<BaseLayout title="Essays" description="Long-form essays and extended arguments.">
+  <div class="container">
+    <div class="page-header">
+      <p class="page-header__eyebrow">Long-form</p>
+      <h1 class="page-header__title">Essays</h1>
+      <p class="section-intro">Extended arguments, explorations, and inquiries — pieces that need room to breathe.</p>
+    </div>
+
+    {essays.length === 0 ? (
+      <p style="color: var(--text-muted); font-style: italic; padding: var(--space-xl) 0;">
+        No essays yet — write something in the <a href="/keystatic">CMS</a>.
+      </p>
+    ) : (
+      <div class="card-list">
+        {essays.map(essay => (
+          <Card
+            href={`/essays/${essay.slug}`}
+            title={essay.data.title}
+            subtitle={essay.data.subtitle}
+            date={essay.data.date}
+            excerpt={essay.data.excerpt}
+            tags={essay.data.tags}
+            type="essay"
+          />
+        ))}
+      </div>
+    )}
+  </div>
+</BaseLayout>

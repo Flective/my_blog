@@ -1,0 +1,65 @@
+---
+export const prerender = true;
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const essays = await getCollection('essays');
+  return essays.map(essay => ({ params: { slug: essay.slug }, props: { essay } }));
+}
+
+const { essay } = Astro.props;
+const { Content, headings } = await essay.render();
+
+// Build TOC from h2 headings only
+const tocHeadings = headings.filter(h => h.depth === 2);
+
+const formattedDate = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric', month: 'long', day: 'numeric'
+}).format(essay.data.date);
+---
+<BaseLayout
+  title={essay.data.title}
+  description={essay.data.excerpt}
+  ogType="article"
+>
+  <article class="container">
+    <header class="page-header">
+      <p class="page-header__eyebrow">Essay</p>
+      <h1 class="page-header__title">{essay.data.title}</h1>
+      {essay.data.subtitle && (
+        <p class="page-header__subtitle">{essay.data.subtitle}</p>
+      )}
+      <div class="page-header__meta">
+        <time datetime={essay.data.date.toISOString()}>{formattedDate}</time>
+        {essay.data.tags && essay.data.tags.map(tag => (
+          <span class="tag">{tag}</span>
+        ))}
+      </div>
+    </header>
+
+    {tocHeadings.length > 2 && (
+      <nav class="toc" aria-label="Table of contents">
+        <p class="toc__title">Contents</p>
+        <ol class="toc__list">
+          {tocHeadings.map(heading => (
+            <li>
+              <a href={`#${heading.slug}`}>{heading.text}</a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+    )}
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    <div class="ornament" style="margin-top: var(--space-2xl);">· · ·</div>
+    <p style="text-align: center; margin-top: var(--space-lg);">
+      <a href="/essays" style="font-size: 0.875rem; color: var(--text-muted); text-decoration: none;">
+        ← Back to Essays
+      </a>
+    </p>
+  </article>
+</BaseLayout>

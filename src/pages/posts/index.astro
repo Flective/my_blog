@@ -1,0 +1,38 @@
+---
+export const prerender = true;
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Card from '../../components/Card.astro';
+
+const posts = (await getCollection('posts')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+---
+<BaseLayout title="Posts" description="All posts and short writings.">
+  <div class="container">
+    <div class="page-header">
+      <p class="page-header__eyebrow">Archive</p>
+      <h1 class="page-header__title">Posts</h1>
+      <p class="section-intro">Short writings, notes, and observations.</p>
+    </div>
+
+    {posts.length === 0 ? (
+      <p style="color: var(--text-muted); font-style: italic; padding: var(--space-xl) 0;">
+        No posts yet — write something in the <a href="/keystatic">CMS</a>.
+      </p>
+    ) : (
+      <div class="card-list">
+        {posts.map(post => (
+          <Card
+            href={`/posts/${post.slug}`}
+            title={post.data.title}
+            date={post.data.date}
+            excerpt={post.data.excerpt}
+            tags={post.data.tags}
+            type="post"
+          />
+        ))}
+      </div>
+    )}
+  </div>
+</BaseLayout>

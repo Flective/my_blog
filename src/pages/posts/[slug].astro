@@ -1,0 +1,46 @@
+---
+export const prerender = true;
+import { getCollection, getEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  return posts.map(post => ({ params: { slug: post.slug }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await post.render();
+
+const formattedDate = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric', month: 'long', day: 'numeric'
+}).format(post.data.date);
+---
+<BaseLayout
+  title={post.data.title}
+  description={post.data.excerpt}
+  ogType="article"
+>
+  <article class="container">
+    <header class="page-header">
+      <p class="page-header__eyebrow">Post</p>
+      <h1 class="page-header__title">{post.data.title}</h1>
+      <div class="page-header__meta">
+        <time datetime={post.data.date.toISOString()}>{formattedDate}</time>
+        {post.data.tags && post.data.tags.map(tag => (
+          <span class="tag">{tag}</span>
+        ))}
+      </div>
+    </header>
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    <div class="ornament" style="margin-top: var(--space-2xl);">· · ·</div>
+    <p style="text-align: center; margin-top: var(--space-lg);">
+      <a href="/posts" style="font-size: 0.875rem; color: var(--text-muted); text-decoration: none;">
+        ← Back to Posts
+      </a>
+    </p>
+  </article>
+</BaseLayout>

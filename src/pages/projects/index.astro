@@ -1,0 +1,39 @@
+---
+export const prerender = true;
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Card from '../../components/Card.astro';
+
+const projects = (await getCollection('projects')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+---
+<BaseLayout title="Projects" description="Projects, ventures, and experiments.">
+  <div class="container">
+    <div class="page-header">
+      <p class="page-header__eyebrow">Work</p>
+      <h1 class="page-header__title">Projects</h1>
+      <p class="section-intro">Ventures, experiments, and things in various states of done.</p>
+    </div>
+
+    {projects.length === 0 ? (
+      <p style="color: var(--text-muted); font-style: italic; padding: var(--space-xl) 0;">
+        No projects yet — add one in the <a href="/keystatic">CMS</a>.
+      </p>
+    ) : (
+      <div class="card-list">
+        {projects.map(project => (
+          <Card
+            href={`/projects/${project.slug}`}
+            title={project.data.title}
+            date={project.data.date}
+            excerpt={project.data.excerpt}
+            tags={project.data.tags}
+            status={project.data.status}
+            type="project"
+          />
+        ))}
+      </div>
+    )}
+  </div>
+</BaseLayout>

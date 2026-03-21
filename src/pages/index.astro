@@ -1,0 +1,98 @@
+---
+export const prerender = true;
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Card from '../components/Card.astro';
+
+const allPosts    = (await getCollection('posts')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const allEssays   = (await getCollection('essays')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const allProjects = (await getCollection('projects')).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const recentPosts  = allPosts.slice(0, 3);
+const recentEssays = allEssays.slice(0, 2);
+const featuredProjects = allProjects.slice(0, 2);
+---
+<BaseLayout title="Your Name"> <!-- ← change -->
+  <div class="container--wide">
+    <!-- Hero -->
+    <section class="home-hero">
+      <span class="home-hero__tagline">Writing & Making</span>
+      <h1 class="home-hero__title">
+        Thinking out loud.<br />Occasionally finishing things.
+      </h1>
+      <p class="home-hero__desc">
+        <!-- ← edit this bio -->
+        Posts, long essays, and project notes — a working archive of ideas from
+        someone who builds too many things and writes about all of them.
+      </p>
+    </section>
+
+    <!-- Recent Posts -->
+    {recentPosts.length > 0 && (
+      <section style="margin-bottom: var(--space-2xl)">
+        <div class="section-head">
+          <span class="section-head__title">Recent Posts</span>
+          <a href="/posts" class="section-head__link">All posts →</a>
+        </div>
+        <div class="card-list">
+          {recentPosts.map(post => (
+            <Card
+              href={`/posts/${post.slug}`}
+              title={post.data.title}
+              date={post.data.date}
+              excerpt={post.data.excerpt}
+              tags={post.data.tags}
+              type="post"
+            />
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- Essays -->
+    {recentEssays.length > 0 && (
+      <section style="margin-bottom: var(--space-2xl)">
+        <div class="section-head">
+          <span class="section-head__title">Essays</span>
+          <a href="/essays" class="section-head__link">All essays →</a>
+        </div>
+        <div class="card-list">
+          {recentEssays.map(essay => (
+            <Card
+              href={`/essays/${essay.slug}`}
+              title={essay.data.title}
+              date={essay.data.date}
+              excerpt={essay.data.excerpt}
+              subtitle={essay.data.subtitle}
+              tags={essay.data.tags}
+              type="essay"
+            />
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- Projects -->
+    {featuredProjects.length > 0 && (
+      <section style="margin-bottom: var(--space-2xl)">
+        <div class="section-head">
+          <span class="section-head__title">Projects</span>
+          <a href="/projects" class="section-head__link">All projects →</a>
+        </div>
+        <div class="card-list">
+          {featuredProjects.map(project => (
+            <Card
+              href={`/projects/${project.slug}`}
+              title={project.data.title}
+              date={project.data.date}
+              excerpt={project.data.excerpt}
+              tags={project.data.tags}
+              status={project.data.status}
+              type="project"
+            />
+          ))}
+        </div>
+      </section>
+    )}
+  </div>
+</BaseLayout>
