@@ -1,1 +1,4 @@
-export { all as GET, all as POST } from '@keystatic/astro/api';
+import { makeHandler } from '@keystatic/astro/api';
+import config from '../../../keystatic.config';
+
+export const { GET, POST } = makeHandler({ config });
