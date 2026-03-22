@@ -1,0 +1,823 @@
+---
+// src/pages/gallery.astro
+// Drop this file into your src/pages/ folder.
+// Also add the gallery collection to keystatic.config.ts (see KEYSTATIC-ADDITION.ts)
+// and create src/content/gallery/ with your .md entries.
+
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const allImages = await getCollection('gallery');
+
+// Sort newest first
+const images = allImages
+  .map(img => ({ ...img.data, slug: img.slug }))
+  .sort((a, b) => {
+    if (!a.date || !b.date) return 0;
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+
+const categories = [
+  { value: 'all',      label: 'All'              },
+  { value: 'photo',    label: 'Photos'           },
+  { value: 'ai-art',   label: 'AI Art'           },
+  { value: 'fiat-lux', label: 'Fiat Lux'         },
+  { value: 'music',    label: 'Music'            },
+];
+
+// Collect all unique tags for tag cloud
+const allTags = [...new Set(images.flatMap(img => img.tags || []))].sort();
+---
+
+<BaseLayout title="Gallery" description="Photography, AI imagery, Fiat Lux surfaces, and music visuals.">
+  <div class="gallery-page">
+
+    <!-- Header -->
+    <header class="gallery-header">
+      <h1>Gallery</h1>
+      <p class="gallery-subtitle">Photography · AI Art · Fiat Lux · Music</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="gallery-controls">
+      <!-- Search -->
+      <div class="search-wrap">
+        <input
+          type="search"
+          id="gallery-search"
+          placeholder="Search title, caption, tags…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <span class="search-icon">⌕</span>
+      </div>
+
+      <!-- Category filters -->
+      <div class="category-filters" role="group" aria-label="Filter by category">
+        {categories.map(cat => (
+          <button
+            class={`filter-btn ${cat.value === 'all' ? 'active' : ''}`}
+            data-category={cat.value}
+            type="button"
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      <!-- Tag cloud (collapsible) -->
+      {allTags.length > 0 && (
+        <details class="tag-cloud-wrap">
+          <summary>Filter by tag</summary>
+          <div class="tag-cloud">
+            {allTags.map(tag => (
+              <button class="tag-btn" data-tag={tag} type="button">{tag}</button>
+            ))}
+          </div>
+        </details>
+      )}
+
+      <!-- Results count -->
+      <div class="results-count" id="results-count" aria-live="polite"></div>
+    </div>
+
+    <!-- Masonry Grid -->
+    <div class="gallery-grid" id="gallery-grid">
+      {images.map((img, i) => (
+        <div
+          class="gallery-item"
+          data-category={img.category}
+          data-tags={JSON.stringify(img.tags || [])}
+          data-title={img.title.toLowerCase()}
+          data-caption={(img.caption || '').toLowerCase()}
+          data-index={i}
+          data-panoramic={img.isPanoramic ? 'true' : 'false'}
+        >
+          <button
+            class="gallery-thumb-btn"
+            type="button"
+            aria-label={`Open image: ${img.title}`}
+            data-open={i}
+          >
+            <img
+              src={img.imagePath}
+              alt={img.title}
+              loading="lazy"
+              decoding="async"
+              class={`gallery-img${img.isPanoramic ? ' panoramic' : ''}`}
+            />
+            <div class="gallery-overlay">
+              <span class="overlay-title">{img.title}</span>
+              {img.caption && <span class="overlay-caption">{img.caption}</span>}
+              <span class={`overlay-cat cat-${img.category}`}>{
+                categories.find(c => c.value === img.category)?.label ?? img.category
+              }</span>
+            </div>
+          </button>
+        </div>
+      ))}
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="empty-state" hidden>
+      <p>No images match your search.</p>
+      <button type="button" id="reset-btn">Clear filters</button>
+    </div>
+
+  </div>
+
+  <!-- ─── Lightbox ─────────────────────────────────────────────── -->
+  <div
+    class="lightbox"
+    id="lightbox"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Image viewer"
+    hidden
+  >
+    <div class="lb-backdrop" id="lb-backdrop"></div>
+
+    <div class="lb-shell">
+      <!-- Top bar -->
+      <div class="lb-topbar">
+        <div class="lb-info">
+          <span class="lb-title" id="lb-title"></span>
+          <span class="lb-caption" id="lb-caption"></span>
+        </div>
+        <div class="lb-actions">
+          <button class="lb-btn" id="lb-zoom-out" title="Zoom out (−)">−</button>
+          <span class="lb-zoom-level" id="lb-zoom-level">100%</span>
+          <button class="lb-btn" id="lb-zoom-in" title="Zoom in (+)">+</button>
+          <button class="lb-btn" id="lb-zoom-reset" title="Reset zoom">↺</button>
+          <button class="lb-btn lb-close" id="lb-close" title="Close (Esc)">✕</button>
+        </div>
+      </div>
+
+      <!-- Image stage: scrollable for panoramics + zoom overflow -->
+      <div class="lb-stage" id="lb-stage">
+        <div class="lb-canvas" id="lb-canvas">
+          <img src="" alt="" id="lb-img" draggable="false" />
+        </div>
+      </div>
+
+      <!-- Nav -->
+      <button class="lb-nav lb-prev" id="lb-prev" title="Previous (←)" aria-label="Previous image">&#8592;</button>
+      <button class="lb-nav lb-next" id="lb-next" title="Next (→)" aria-label="Next image">&#8594;</button>
+
+      <!-- Counter -->
+      <div class="lb-counter" id="lb-counter"></div>
+    </div>
+  </div>
+</BaseLayout>
+
+<!-- ─── Styles ──────────────────────────────────────────────────── -->
+<style>
+  /* ── Page layout ── */
+  .gallery-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  .gallery-header {
+    margin-bottom: 2rem;
+  }
+  .gallery-header h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.25rem;
+  }
+  .gallery-subtitle {
+    color: var(--text-muted, #888);
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  /* ── Controls ── */
+  .gallery-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border, #e8e3dc);
+  }
+
+  .search-wrap {
+    position: relative;
+    flex: 1 1 220px;
+    max-width: 340px;
+  }
+  .search-wrap input {
+    width: 100%;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    border: 1px solid var(--border, #ccc);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+  }
+  .search-wrap input:focus {
+    outline: none;
+    border-color: var(--accent, #8b6955);
+  }
+  .search-icon {
+    position: absolute;
+    right: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.1rem;
+    color: var(--text-muted, #aaa);
+    pointer-events: none;
+  }
+
+  .category-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .filter-btn {
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--border, #ccc);
+    border-radius: 100px;
+    background: transparent;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: inherit;
+    font-family: inherit;
+    letter-spacing: 0.03em;
+  }
+  .filter-btn:hover,
+  .filter-btn.active {
+    background: var(--accent, #8b6955);
+    border-color: var(--accent, #8b6955);
+    color: #fff;
+  }
+
+  .tag-cloud-wrap {
+    width: 100%;
+  }
+  .tag-cloud-wrap summary {
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: var(--text-muted, #888);
+    user-select: none;
+  }
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+  }
+  .tag-btn {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--border, #ddd);
+    border-radius: 3px;
+    background: transparent;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: inherit;
+    font-family: inherit;
+  }
+  .tag-btn:hover, .tag-btn.active-tag {
+    background: var(--text-muted, #888);
+    border-color: var(--text-muted, #888);
+    color: #fff;
+  }
+
+  .results-count {
+    font-size: 0.8rem;
+    color: var(--text-muted, #aaa);
+    margin-left: auto;
+  }
+
+  /* ── Masonry Grid ── */
+  .gallery-grid {
+    columns: 4 280px;
+    column-gap: 1rem;
+  }
+  .gallery-item {
+    break-inside: avoid;
+    margin-bottom: 1rem;
+    display: block;
+  }
+  .gallery-item[hidden] { display: none; }
+
+  .gallery-thumb-btn {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 4px;
+    overflow: hidden;
+    /* subtle shadow */
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .gallery-thumb-btn:hover {
+    box-shadow: 0 6px 24px rgba(0,0,0,0.14);
+    transform: translateY(-2px);
+  }
+  .gallery-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+  }
+  .gallery-img.panoramic {
+    /* Don't crop panoramics in the grid — show full width compressed */
+    aspect-ratio: 3/1;
+    object-fit: cover;
+  }
+
+  /* ── Hover overlay ── */
+  .gallery-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 55%);
+    opacity: 0;
+    transition: opacity 0.22s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0.85rem;
+    text-align: left;
+  }
+  .gallery-thumb-btn:hover .gallery-overlay,
+  .gallery-thumb-btn:focus-visible .gallery-overlay {
+    opacity: 1;
+  }
+  .overlay-title {
+    display: block;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .overlay-caption {
+    display: block;
+    color: rgba(255,255,255,0.78);
+    font-size: 0.78rem;
+    margin-top: 0.2rem;
+    line-height: 1.4;
+  }
+  .overlay-cat {
+    display: inline-block;
+    margin-top: 0.4rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #fff;
+  }
+  .cat-photo    { background: rgba(139,105,85,0.75);  }
+  .cat-ai-art   { background: rgba(80,100,160,0.75);  }
+  .cat-fiat-lux { background: rgba(60,130,100,0.75);  }
+  .cat-music    { background: rgba(160,70,100,0.75);  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 0;
+    color: var(--text-muted, #aaa);
+  }
+  .empty-state button {
+    margin-top: 1rem;
+    padding: 0.4rem 1rem;
+    border: 1px solid currentColor;
+    background: none;
+    cursor: pointer;
+    border-radius: 4px;
+    color: inherit;
+    font-family: inherit;
+  }
+
+  /* ── Lightbox shell ── */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+  }
+  .lightbox[hidden] { display: none !important; }
+
+  .lb-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(10,9,8,0.94);
+    backdrop-filter: blur(6px);
+  }
+
+  .lb-shell {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Top bar */
+  .lb-topbar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1rem 1.25rem 0.75rem;
+    gap: 1rem;
+    flex-shrink: 0;
+  }
+  .lb-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .lb-title {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  .lb-caption {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.82rem;
+    max-width: 60vw;
+    line-height: 1.4;
+  }
+  .lb-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+  .lb-btn {
+    width: 2.1rem;
+    height: 2.1rem;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lb-btn:hover { background: rgba(255,255,255,0.2); }
+  .lb-zoom-level {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.78rem;
+    width: 3rem;
+    text-align: center;
+  }
+  .lb-close {
+    margin-left: 0.5rem;
+    border-color: rgba(255,255,255,0.4);
+  }
+
+  /* Stage — this is where zoom + pan + panoramic scroll happen */
+  .lb-stage {
+    flex: 1;
+    overflow: auto;          /* scroll when image overflows due to zoom */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    position: relative;
+  }
+  .lb-stage:active { cursor: grabbing; }
+
+  .lb-canvas {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100%;
+    min-height: 100%;
+    /* transform-origin handled by JS */
+  }
+  #lb-img {
+    display: block;
+    max-width: none;         /* allow zoom to exceed container */
+    max-height: none;
+    transform-origin: center center;
+    transition: transform 0.18s ease;
+    user-select: none;
+    pointer-events: none;    /* pan handled by stage */
+    border-radius: 2px;
+  }
+
+  /* Nav arrows */
+  .lb-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 20;
+    width: 3rem;
+    height: 3rem;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 50%;
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  .lb-nav:hover { background: rgba(0,0,0,0.7); }
+  .lb-prev { left: 0.75rem; }
+  .lb-next { right: 0.75rem; }
+
+  .lb-counter {
+    position: absolute;
+    bottom: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.45);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    z-index: 10;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .gallery-grid { columns: 2 140px; }
+    .lb-prev { left: 0.25rem; }
+    .lb-next { right: 0.25rem; }
+    .lb-caption { max-width: 50vw; }
+  }
+</style>
+
+<!-- ─── Script ──────────────────────────────────────────────────── -->
+<script>
+(function () {
+  // ── Data from server ──────────────────────────────────────────
+  const items      = Array.from(document.querySelectorAll('.gallery-item'));
+  const grid       = document.getElementById('gallery-grid');
+  const emptyState = document.getElementById('empty-state');
+  const countEl    = document.getElementById('results-count');
+  const searchEl   = document.getElementById('gallery-search');
+  const resetBtn   = document.getElementById('reset-btn');
+
+  let activeCategory = 'all';
+  let activeTag      = null;
+  let searchTerm     = '';
+
+  // ── Filter engine ─────────────────────────────────────────────
+  function applyFilters() {
+    let visible = 0;
+    items.forEach(item => {
+      const cat  = item.dataset.category;
+      const tags = JSON.parse(item.dataset.tags || '[]');
+      const ttl  = item.dataset.title  || '';
+      const cap  = item.dataset.caption || '';
+
+      const catMatch  = activeCategory === 'all' || cat === activeCategory;
+      const tagMatch  = !activeTag || tags.includes(activeTag);
+      const termMatch = !searchTerm
+        || ttl.includes(searchTerm)
+        || cap.includes(searchTerm)
+        || tags.some(t => t.toLowerCase().includes(searchTerm));
+
+      const show = catMatch && tagMatch && termMatch;
+      item.hidden = !show;
+      if (show) visible++;
+    });
+
+    const total = items.length;
+    countEl.textContent = visible === total
+      ? `${total} images`
+      : `${visible} of ${total}`;
+
+    emptyState.hidden = visible > 0;
+  }
+
+  // ── Category buttons ──────────────────────────────────────────
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeCategory = btn.dataset.category;
+      applyFilters();
+    });
+  });
+
+  // ── Tag buttons ───────────────────────────────────────────────
+  document.querySelectorAll('.tag-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (activeTag === btn.dataset.tag) {
+        activeTag = null;
+        btn.classList.remove('active-tag');
+      } else {
+        document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active-tag'));
+        activeTag = btn.dataset.tag;
+        btn.classList.add('active-tag');
+      }
+      applyFilters();
+    });
+  });
+
+  // ── Search ────────────────────────────────────────────────────
+  searchEl.addEventListener('input', () => {
+    searchTerm = searchEl.value.trim().toLowerCase();
+    applyFilters();
+  });
+
+  resetBtn?.addEventListener('click', resetAll);
+
+  function resetAll() {
+    activeCategory = 'all';
+    activeTag      = null;
+    searchTerm     = '';
+    searchEl.value = '';
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-category="all"]')?.classList.add('active');
+    document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active-tag'));
+    applyFilters();
+  }
+
+  applyFilters(); // initial count
+
+  // ── Lightbox ──────────────────────────────────────────────────
+  const lb        = document.getElementById('lightbox');
+  const lbImg     = document.getElementById('lb-img');
+  const lbTitle   = document.getElementById('lb-title');
+  const lbCaption = document.getElementById('lb-caption');
+  const lbCounter = document.getElementById('lb-counter');
+  const lbStage   = document.getElementById('lb-stage');
+  const lbZoomLvl = document.getElementById('lb-zoom-level');
+  const lbClose   = document.getElementById('lb-close');
+  const lbPrev    = document.getElementById('lb-prev');
+  const lbNext    = document.getElementById('lb-next');
+  const lbBdrop   = document.getElementById('lb-backdrop');
+
+  let currentIndex = 0;
+  let zoomLevel    = 1;
+  const ZOOM_STEP  = 0.25;
+  const ZOOM_MAX   = 5;
+  const ZOOM_MIN   = 0.25;
+
+  // Visible items list (respects current filters)
+  function visibleItems() {
+    return items.filter(i => !i.hidden);
+  }
+
+  function openLightbox(item) {
+    const vis   = visibleItems();
+    currentIndex = vis.indexOf(item);
+    zoomLevel    = 1;
+    showSlide(currentIndex, vis);
+    lb.hidden = false;
+    document.body.style.overflow = 'hidden';
+    lbClose.focus();
+  }
+
+  function closeLightbox() {
+    lb.hidden = true;
+    document.body.style.overflow = '';
+    lbImg.src = '';
+  }
+
+  function showSlide(idx, vis) {
+    if (!vis) vis = visibleItems();
+    if (vis.length === 0) return;
+    idx = ((idx % vis.length) + vis.length) % vis.length;
+    currentIndex = idx;
+
+    const item  = vis[idx];
+    const thumb = item.querySelector('.gallery-img');
+    const btn   = item.querySelector('.gallery-thumb-btn');
+
+    lbImg.src         = thumb.src;
+    lbImg.alt         = thumb.alt;
+    lbTitle.textContent   = item.dataset.title || '';
+    lbCaption.textContent = item.dataset.caption || '';
+    lbCounter.textContent = `${idx + 1} / ${vis.length}`;
+
+    // Panoramic hint
+    const isPanoramic = item.dataset.panoramic === 'true';
+    lbStage.style.alignItems     = isPanoramic ? 'flex-start' : 'center';
+    lbStage.style.justifyContent = isPanoramic ? 'flex-start' : 'center';
+
+    // Reset zoom
+    zoomLevel = 1;
+    applyZoom();
+
+    // Scroll stage to top-left for panoramics
+    if (isPanoramic) {
+      lbStage.scrollLeft = 0;
+      lbStage.scrollTop  = 0;
+    }
+  }
+
+  function applyZoom() {
+    lbImg.style.transform = `scale(${zoomLevel})`;
+    lbZoomLvl.textContent = Math.round(zoomLevel * 100) + '%';
+    // When zoomed in, ensure stage scrollbars appear
+    lbStage.style.overflow = zoomLevel > 1 ? 'auto' : 'hidden';
+    if (zoomLevel <= 1) {
+      lbStage.style.alignItems     = 'center';
+      lbStage.style.justifyContent = 'center';
+    }
+  }
+
+  // Thumbnail click → open
+  document.querySelectorAll('.gallery-thumb-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.gallery-item');
+      openLightbox(item);
+    });
+  });
+
+  lbClose.addEventListener('click', closeLightbox);
+  lbBdrop.addEventListener('click', closeLightbox);
+
+  lbPrev.addEventListener('click', () => {
+    showSlide(currentIndex - 1, visibleItems());
+  });
+  lbNext.addEventListener('click', () => {
+    showSlide(currentIndex + 1, visibleItems());
+  });
+
+  // Zoom controls
+  document.getElementById('lb-zoom-in').addEventListener('click', () => {
+    zoomLevel = Math.min(ZOOM_MAX, +(zoomLevel + ZOOM_STEP).toFixed(2));
+    applyZoom();
+  });
+  document.getElementById('lb-zoom-out').addEventListener('click', () => {
+    zoomLevel = Math.max(ZOOM_MIN, +(zoomLevel - ZOOM_STEP).toFixed(2));
+    applyZoom();
+  });
+  document.getElementById('lb-zoom-reset').addEventListener('click', () => {
+    zoomLevel = 1;
+    applyZoom();
+  });
+
+  // Scroll-wheel zoom inside lightbox
+  lbStage.addEventListener('wheel', e => {
+    if (!lb.hidden) {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+      zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(zoomLevel + delta).toFixed(2)));
+      applyZoom();
+    }
+  }, { passive: false });
+
+  // Drag-to-pan inside lightbox
+  let isDragging = false, dragStartX = 0, dragStartY = 0,
+      scrollStartX = 0, scrollStartY = 0;
+
+  lbStage.addEventListener('mousedown', e => {
+    isDragging  = true;
+    dragStartX  = e.clientX;
+    dragStartY  = e.clientY;
+    scrollStartX = lbStage.scrollLeft;
+    scrollStartY = lbStage.scrollTop;
+    lbStage.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    lbStage.scrollLeft = scrollStartX - (e.clientX - dragStartX);
+    lbStage.scrollTop  = scrollStartY - (e.clientY - dragStartY);
+  });
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+    lbStage.style.cursor = 'grab';
+  });
+
+  // Keyboard nav
+  document.addEventListener('keydown', e => {
+    if (lb.hidden) return;
+    if (e.key === 'Escape')      closeLightbox();
+    if (e.key === 'ArrowLeft')   showSlide(currentIndex - 1, visibleItems());
+    if (e.key === 'ArrowRight')  showSlide(currentIndex + 1, visibleItems());
+    if (e.key === '+' || e.key === '=') {
+      zoomLevel = Math.min(ZOOM_MAX, +(zoomLevel + ZOOM_STEP).toFixed(2));
+      applyZoom();
+    }
+    if (e.key === '-') {
+      zoomLevel = Math.max(ZOOM_MIN, +(zoomLevel - ZOOM_STEP).toFixed(2));
+      applyZoom();
+    }
+    if (e.key === '0') { zoomLevel = 1; applyZoom(); }
+  });
+
+  // Touch swipe for mobile
+  let touchStartX = 0;
+  lbStage.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  lbStage.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 60) showSlide(currentIndex + (dx < 0 ? 1 : -1), visibleItems());
+  });
+})();
+</script>

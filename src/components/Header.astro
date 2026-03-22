@@ -3,13 +3,14 @@ const navLinks = [
   { href: '/posts', label: 'Posts' },
   { href: '/essays', label: 'Essays' },
   { href: '/projects', label: 'Projects' },
+  { href: '/gallery', label: 'Gallery' },
   { href: '/about', label: 'About' },
 ];
 const pathname = Astro.url.pathname;
 ---
 <header class="site-header">
   <div class="site-header__inner">
-    <a href="/" class="site-logo">Your Name</a> <!-- ← change this -->
+    <a href="/" class="site-logo">Alien Chameleon</a> <!-- ← change this -->
     <nav class="site-nav" aria-label="Main navigation">
       {navLinks.map(link => (
         <a

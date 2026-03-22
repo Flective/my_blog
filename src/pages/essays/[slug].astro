@@ -1,17 +1,17 @@
 ---
 export const prerender = true;
-import { getCollection } from 'astro:content';
+import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import Comments from '../../components/Comments.astro';
 
 export async function getStaticPaths() {
   const essays = await getCollection('essays');
-  return essays.map(essay => ({ params: { slug: essay.slug }, props: { essay } }));
+  return essays.map(essay => ({ params: { slug: essay.id }, props: { essay } }));
 }
 
 const { essay } = Astro.props;
-const { Content, headings } = await essay.render();
+const { Content, headings } = await render(essay);
 
-// Build TOC from h2 headings only
 const tocHeadings = headings.filter(h => h.depth === 2);
 
 const formattedDate = new Intl.DateTimeFormat('en-US', {
@@ -61,5 +61,12 @@ const formattedDate = new Intl.DateTimeFormat('en-US', {
         ← Back to Essays
       </a>
     </p>
+
+    <Comments
+      pageId={essay.id}
+      pageUrl={Astro.url.href}
+      pageTitle={essay.data.title}
+    />
+
   </article>
 </BaseLayout>

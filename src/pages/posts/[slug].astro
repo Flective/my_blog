@@ -1,15 +1,16 @@
 ---
 export const prerender = true;
-import { getCollection, getEntry } from 'astro:content';
+import { getCollection, getEntry, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import Comments from '../../components/Comments.astro';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
-  return posts.map(post => ({ params: { slug: post.slug }, props: { post } }));
+  return posts.map(post => ({ params: { slug: post.id }, props: { post } }));
 }
 
 const { post } = Astro.props;
-const { Content } = await post.render();
+const { Content } = await render(post);
 
 const formattedDate = new Intl.DateTimeFormat('en-US', {
   year: 'numeric', month: 'long', day: 'numeric'
@@ -42,5 +43,12 @@ const formattedDate = new Intl.DateTimeFormat('en-US', {
         ← Back to Posts
       </a>
     </p>
+
+    <Comments
+    pageId={post.id}
+    pageUrl={Astro.url.href}
+    pageTitle={post.data.title}
+  />
+
   </article>
 </BaseLayout>

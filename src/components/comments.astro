@@ -1,0 +1,29 @@
+---
+const { pageId, pageUrl, pageTitle } = Astro.props;
+---
+
+<div class="comments-section">
+  <h2>Comments</h2>
+  <div
+    id="cusdis_thread"
+    data-host="https://cusdis.com"
+    data-app-id="c5bdc762-ad11-40fa-923d-1c39946c1487"
+    data-page-id={pageId}
+    data-page-url={pageUrl}
+    data-page-title={pageTitle}
+  ></div>
+  <script async defer src="https://cusdis.com/js/cusdis.es.js"></script>
+</div>
+
+<style>
+  .comments-section {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border, #e8e3dc);
+  }
+  .comments-section h2 {
+    font-size: 1.25rem;
+    font-weight: 400;
+    margin-bottom: 1.5rem;
+  }
+</style>

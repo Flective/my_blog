@@ -14,6 +14,46 @@ export default config({
   },
 
   collections: {
+
+
+    gallery: collection({
+      label: 'Gallery',
+      slugField: 'title',
+      path: 'src/content/gallery/*',
+      schema: {
+        title: fields.slug({ name: { label: 'Title' } }),
+        caption: fields.text({
+          label: 'Caption',
+          description: 'Shown on hover in the gallery',
+          multiline: true,
+        }),
+        category: fields.select({
+          label: 'Category',
+          options: [
+            { label: 'Personal Photos',          value: 'photo'     },
+            { label: 'AI-Generated Imagery',     value: 'ai-art'    },
+            { label: 'Fiat Lux / Reflective',    value: 'fiat-lux'  },
+            { label: 'Music Videos / Stills',    value: 'music'     },
+          ],
+          defaultValue: 'photo',
+        }),
+        imagePath: fields.text({
+          label: 'Image Path',
+          description: 'Path relative to /public — e.g. /gallery/my-photo.jpg',
+        }),
+        isPanoramic: fields.checkbox({
+          label: 'Panoramic / wide image',
+          description: 'Enables horizontal scroll in the lightbox for wide images',
+          defaultValue: false,
+        }),
+        tags: fields.array(
+          fields.text({ label: 'Tag' }),
+          { label: 'Tags', itemLabel: (props) => props.fields.value }
+        ),
+        date: fields.date({ label: 'Date' }),
+      },
+    }),
+  
     posts: collection({
       label: 'Posts',
       slugField: 'title',

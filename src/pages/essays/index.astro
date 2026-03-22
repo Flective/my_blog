@@ -24,7 +24,7 @@ const essays = (await getCollection('essays')).sort(
       <div class="card-list">
         {essays.map(essay => (
           <Card
-            href={`/essays/${essay.slug}`}
+            href={`/essays/${essay.id}`}
             title={essay.data.title}
             subtitle={essay.data.subtitle}
             date={essay.data.date}

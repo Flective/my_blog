@@ -1,13 +1,15 @@
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
-import vercel from '@astrojs/vercel/serverless';
+import vercel from '@astrojs/vercel';
 import keystatic from '@keystatic/astro';
+
+import react from '@astrojs/react';
 
 export default defineConfig({
   site: 'http://localhost:4321',
-  output: 'hybrid',
+  output: 'static',
   adapter: vercel(),
-  integrations: [mdx(), keystatic()],
+  integrations: [mdx(), react(), keystatic()],
   markdown: {
     shikiConfig: {
       theme: 'github-light',

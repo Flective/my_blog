@@ -1,15 +1,15 @@
 ---
 export const prerender = true;
-import { getCollection } from 'astro:content';
+import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 
 export async function getStaticPaths() {
   const projects = await getCollection('projects');
-  return projects.map(project => ({ params: { slug: project.slug }, props: { project } }));
+  return projects.map(project => ({ params: { slug: project.id }, props: { project } }));
 }
 
 const { project } = Astro.props;
-const { Content } = await project.render();
+const { Content } = await render(project);
 
 const formattedDate = new Intl.DateTimeFormat('en-US', {
   year: 'numeric', month: 'long', day: 'numeric'

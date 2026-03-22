@@ -10,7 +10,7 @@ interface Props {
 }
 
 const { title, description = 'Thoughts, essays, and projects.', ogType = 'website' } = Astro.props;
-const siteTitle = 'Your Name'; // ← change this
+const siteTitle = 'Alien Chameleon'; // ← change this
 const fullTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 ---

@@ -24,7 +24,7 @@ const projects = (await getCollection('projects')).sort(
       <div class="card-list">
         {projects.map(project => (
           <Card
-            href={`/projects/${project.slug}`}
+            href={`/projects/${project.id}`}
             title={project.data.title}
             date={project.data.date}
             excerpt={project.data.excerpt}
